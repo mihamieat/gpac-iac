@@ -54,19 +54,18 @@ jobs:
             "https://app.terraform.io/api/v2/workspaces/$TF_WORKSPACE_KEY/current-state-version-outputs")
 
           DATABASE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_ip") | .attributes.value')
-          echo "database_ip=$DATABASE_IP" >> $GITHUB_OUTPUT
+          echo "database_ip=${DATABASE_IP}" >> $GITHUB_OUTPUT
 
       - name: Save Outputs
         id: save-ouputs
         run: |
           echo "${{ steps.tf-outputs.outputs.database_ip }}" > database_ip.txt
-          echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_ENV
+          echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_OUTPUT
 
   ansible:
     name: "Ansible Provisioning"
     needs: terraform
     runs-on: ubuntu-latest
-    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -75,16 +74,18 @@ jobs:
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Configure SSH
+        env:
+          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ needs.terraform.outputs.database_ip }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H "${DATABASE_IP}" >> ~/.ssh/known_hosts
 
       - name: Create Inventory File
         run: |
           echo "[mongodb]" > inventory.ini
-          echo "${{ needs.terraform.outputs.database_ip }} ansible_user=admin" >> inventory.ini
+          echo "${DATABASE_IP} ansible_user=admin" >> inventory.ini
 
       - name: Run Install Mongo DB Ansible Playbook
         uses: dawidd6/action-ansible-playbook@v3
