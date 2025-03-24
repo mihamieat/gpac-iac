@@ -1,4 +1,4 @@
-name: "Terraform Apply"
+name: "Terraform Apply with Ansible Provisioning"
 on:
   push:
 
@@ -14,11 +14,18 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
+    
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Upload Configurtation
+      - name: Setup Terraform CLI
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_wrapper: false
+
+      - name: Upload Configuration
         uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
         id: apply-upload
         with:
@@ -38,3 +45,51 @@ jobs:
         with:
           run: ${{ steps.apply-run.outputs.run_id }}
           comment: "Apply Run from GitHub Actions CI ${{ github.sha }}"
+
+      - name: Get Terraform Outputs
+        id: tf-outputs
+        uses: hashicorp/terraform-cloud-outputs-action@v1
+        with:
+          organization: ${{ env.TF_CLOUD_ORGANIZATION }}
+          workspace: ${{ env.TF_WORKSPACE }}
+          outputs: 'database_ip'
+        env:
+          TF_API_TOKEN: ${{ secrets.TF_API_TOKEN }}
+
+      - name: Save Outputs
+        run: |
+          echo "${{ steps.tf-outputs.outputs.database_ip }}" > database_ip.txt
+          echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_ENV
+
+  ansible:
+    name: "Ansible Provisioning"
+    needs: terraform
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible
+        run: sudo apt update && sudo apt install -y ansible
+
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ env.DATABASE_IP }} >> ~/.ssh/known_hosts
+
+      - name: Create Inventory File
+        run: |
+          echo "[mongodb]" > inventory.ini
+          echo "${{ env.DATABASE_IP }} ansible_user=admin" >> inventory.ini
+
+      - name: Run Install Mongo DB Ansible Playbook
+        uses: dawidd6/action-ansible-playbook@v3
+        with:
+          playbook: playbooks/install-mongodb.yaml
+          inventory: inventory.ini
+          options: |
+            --private-key ~/.ssh/id_rsa
+            --user admin
