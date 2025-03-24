@@ -1,0 +1,40 @@
+---
+- name: Install MongoDB 8.0
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install prerequisite packages
+      apt:
+        name:
+          - gnupg
+          - curl
+        state: present
+        update_cache: yes
+
+    - name: Download MongoDB GPG key
+      ansible.builtin.get_url:
+        url: https://www.mongodb.org/static/pgp/server-8.0.asc
+        dest: /tmp/mongodb-server-8.0.asc
+
+    - name: Add MongoDB GPG key
+      ansible.builtin.apt_key:
+        file: /tmp/mongodb-server-8.0.asc
+        keyring: /usr/share/keyrings/mongodb-server-8.0.gpg
+
+    - name: Create MongoDB repository file
+      ansible.builtin.copy:
+        dest: /etc/apt/sources.list.d/mongodb-org-8.0.list
+        content: |
+          deb [ signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg ] http://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Update apt package index
+      apt:
+        update_cache: yes
+
+    - name: Install MongoDB packages
+      apt:
+        name: mongodb-org
+        state: present
