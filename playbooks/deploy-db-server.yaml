@@ -8,17 +8,40 @@
     project_dir: "/opt/mongodb_stack"
 
   tasks:
-    - name: Clone the git repository
+    - name: Ensure project directory exists
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Stop and clean up any existing stack
+      ansible.builtin.command: >
+        docker compose -f "{{ project_dir }}/docker-compose.yml" down --volumes --remove-orphans
+      args:
+        chdir: "{{ project_dir }}"
+      ignore_errors: yes
+      register: cleanup_result
+      changed_when: false
+      tags: deploy
+
+    - name: Clone/update repository
       ansible.builtin.git:
         repo: "{{ repo_url }}"
         dest: "{{ project_dir }}"
         version: "{{ branch }}"
-        clone: yes
+        force: yes
         update: yes
+      tags: deploy
 
-    - name: Deploy MongoDB stack using docker-compose
-      ansible.builtin.command:
-        cmd: docker compose -f "{{ project_dir }}/docker-compose.yml" up -d
+    - name: Set secure permissions for compose files
+      ansible.builtin.file:
+        path: "{{ project_dir }}"
+        mode: '0750'
+        recurse: yes
+
+    - name: Deploy MongoDB stack
+      ansible.builtin.command: >
+        docker compose -f "{{ project_dir }}/docker-compose.yml" up -d --pull always
       args:
         chdir: "{{ project_dir }}"
       environment:
