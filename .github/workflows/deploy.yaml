@@ -74,6 +74,8 @@ jobs:
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Configure SSH
+        env:
+          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
