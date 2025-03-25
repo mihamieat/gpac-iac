@@ -5,10 +5,10 @@ output "frontend_ip" {
 
 output "backend_ip" {
   description = "The public IP of the backend Ec2 instance"
-  value       = aws_instance.app_fronted.public_ip
+  value       = aws_instance.app_backend.public_ip
 }
 
 output "database_ip" {
   description = "The public IP of the database EC2 instance"
-  value       = aws_instance.app_fronted.public_ip
+  value       = aws_instance.database.public_ip
 }
