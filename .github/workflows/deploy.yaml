@@ -92,7 +92,7 @@ jobs:
           playbook: playbooks/configure-servers.yaml
           inventory: |
             [mongodb]
-            ${{ env.DATABASE_IP }} ansible_user=admin
+            ${{ env.DATABASE_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Run Install Mongo DB Ansible Playbook
@@ -103,7 +103,7 @@ jobs:
           playbook: playbooks/deploy-db-server.yaml
           inventory: |
             [mongodb]
-            ${{ env.DATABASE_IP }} ansible_user=admin
+            ${{ env.DATABASE_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
             --extra-vars db_root_user=${{ secrets.DB_ROOT_USERNAME }}
