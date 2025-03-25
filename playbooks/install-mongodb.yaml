@@ -1,6 +1,6 @@
 ---
 - name: Install MongoDB 8.0
-  hosts: all
+  hosts: mongodb
   become: yes
   tasks:
     - name: Install prerequisite packages
