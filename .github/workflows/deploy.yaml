@@ -84,13 +84,29 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
+      - name: Configure EC2 targets
+        uses: dawidd6/action-ansible-playbook@v3
+        env:
+          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
+        with:
+          playbook: playbooks/configure-servers.yaml
+          inventory: |
+            [mongodb]
+            ${{ env.DATABASE_IP }} ansible_user=admin
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Run Install Mongo DB Ansible Playbook
         uses: dawidd6/action-ansible-playbook@v3
         env:
           DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         with:
-          playbook: playbooks/install-mongodb.yaml
+          playbook: playbooks/deploy-db-server.yaml
           inventory: |
             [mongodb]
             ${{ env.DATABASE_IP }} ansible_user=admin
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          options: |
+            --extra-vars db_root_user=${{ secrets.DB_ROOT_USERNAME }}
+            --extra-vars db_root_pass=${{ secrets.DB_ROOT_PASSWORD }}
+            --extra-vars db_ui_user=${{ secrets.DB_UI_AUTH_USERNAME }}
+            --extra-vars db_ui_pass=${{ secrets.DB_UI_AUTH_PASSWORD }}
