@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       database_ip: ${{ steps.save-ouputs.outputs.database_ip}}
-      
+
     permissions:
       contents: read
       id-token: write

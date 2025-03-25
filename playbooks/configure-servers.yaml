@@ -1,6 +1,6 @@
 ---
 - name: Configure remote Server
-  hosts: all 
+  hosts: all
   become: yes
   tasks:
     - name: Install prerequisites
@@ -17,13 +17,13 @@
       file:
         path: /etc/apt/keyrings
         state: directory
-        mode: '0755'
+        mode: "0755"
 
     - name: Download Docker's GPG key
       get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
         dest: /etc/apt/keyrings/docker.asc
-        mode: '0644'
+        mode: "0644"
 
     - name: Add Docker repository to APT sources
       ansible.builtin.shell: |
