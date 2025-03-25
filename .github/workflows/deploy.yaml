@@ -74,8 +74,6 @@ jobs:
         run: sudo apt update && sudo apt install -y ansible
 
       - name: Configure SSH
-        env:
-          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
@@ -83,16 +81,13 @@ jobs:
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-      - name: Create Inventory File
-        run: |
-          echo "[mongodb]" > inventory.ini
-          echo "${DATABASE_IP} ansible_user=admin" >> inventory.ini
-
       - name: Run Install Mongo DB Ansible Playbook
         uses: dawidd6/action-ansible-playbook@v3
+        env:
+          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         with:
           playbook: playbooks/install-mongodb.yaml
-          inventory: inventory.ini
-          options: |
-            --private-key ~/.ssh/id_rsa
-            --user admin
+          inventory: |
+            [mongodb]
+            ${{ env.DATABASE_IP }} ansible_user=admin
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
