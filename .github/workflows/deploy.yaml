@@ -1,4 +1,4 @@
-name: "Terraform Apply with Ansible Provisioning"
+name: "Deploy stack"
 on:
   push:
 
