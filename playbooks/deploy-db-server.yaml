@@ -1,0 +1,29 @@
+---
+- name: Deploy MongoDB + Mongo-Express stack from git
+  hosts: mongodb
+  become: yes
+  vars:
+    repo_url: "https://github.com/mihamieat/mongo-plus-express-compose.git"
+    branch: "master"
+    project_dir: "/opt/mongodb_stack"
+  
+  tasks:
+    - name: Clone the git repository
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ project_dir }}"
+        version: "{{ branch }}"
+        clone: yes
+        update: yes
+
+    - name: Deploy MongoDB stack using docker-compose
+      ansible.builtin.command:
+        cmd: docker compose -f "{{ project_dir }}/docker-compose.yml" up -d
+      args:
+        chdir: "{{ project_dir }}"
+      environment:
+        DB_ROOT_USERNAME: "{{ db_root_user }}"
+        DB_ROOT_PASSWORD: "{{ db_root_pass }}"
+        DB_UI_AUTH_USERNAME: "{{ db_ui_user }}"
+        DB_UI_AUTH_PASSWORD: "{{ db_ui_pass }}"
+      tags: deploy

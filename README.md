@@ -9,6 +9,10 @@ IaC repository of our G-Pac project
 | `TF_CLOUD_ORGANIZATION`    | The name of the Terraform Cloud organization where the workspaces are managed. |
 | `TF_WORKSPACE`             | The name of the current Terraform workspace. |
 | `TF_WORKSPACE_KEY`         | A unique identifier or API key related to a specific Terraform workspace. |
+| `DB_ROOT_USERNAME` | MongoDB root username |
+| `DB_ROOT_PASSWORD` | MongoDB root password |
+| `DB_UI_AUTH_USERNAME` | MongoDB-Express username |
+| `DB_UI_AUTH_PASSWORD` | MongoDB-Express password |
 
 ## Contribute 
 
