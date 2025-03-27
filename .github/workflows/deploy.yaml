@@ -142,3 +142,18 @@ jobs:
             --extra-vars database_domain=${{ secrets.DATABASE_DOMAIN }}
             --extra-vars database_app_name=${{ secrets.DATABASE_APP_NAME }}
             --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
+
+      - name: Run Deploy Frontend Playbook
+        uses: dawidd6/action-ansible-playbook@v3
+        env:
+          FRONTEND_IP: ${{ needs.terraform.outputs.frontend_ip }}
+        with:
+          playbook: playbooks/deploy-frontend-server.yaml
+          inventory: |
+            [frontend]
+            ${{ env.FRONTEND_IP }} ansible_user=ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          options: |
+            --extra-vars api_url=${{ secrets.API_URL }}
+            --extra-vars api_username=${{ secrets.API_USER }}
+            --extra-vars api_password=${{ secrets.API_PASSWORD }}

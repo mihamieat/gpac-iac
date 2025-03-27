@@ -22,11 +22,20 @@ IaC repository of our G-Pac project
 Values related to MongoDB connection string.
 | Variable Name | Description |
 |----|----|
-|DATABASE_USER| Mogodb database user|
-|DATABASE_PASSWORD| Mongodb user password|
-|DATABASE_DOMAIN| Mongodb domain|
-|DATABASE_APP_NAME| Mongodb app name|
-|DATABASE_CLIENT| Mongodb client|
+|`DATABASE_USER`| Mogodb database user|
+|`DATABASE_PASSWORD`| Mongodb user password|
+|`DATABASE_DOMAIN`| Mongodb domain|
+|`DATABASE_APP_NAME`| Mongodb app name|
+|`DATABASE_CLIENT`| Mongodb client|
+
+### Frontend environment variables
+
+Values related to frontend configurations.
+| Variable Name | Description |
+|---|---|
+| `API_URL` | Backend URL |
+| `API_USERNAME` | Backend Login Username |
+| `API_PASSWORD` | Backend Login Password |
 
 ## Contribute
 
