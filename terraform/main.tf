@@ -144,7 +144,7 @@ resource "aws_security_group" "db_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = [var.db_admin_ip]
+    cidr_blocks = ["${var.db_admin_ip}/32"]
   }
 
   egress {
