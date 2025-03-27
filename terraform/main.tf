@@ -199,7 +199,7 @@ resource "aws_instance" "database" {
   ami                    = "ami-0160e8d70ebc43ee1" # Ubuntu 24.04 x86
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.public_sg.id]
+  vpc_security_group_ids = [aws_security_group.db_sg.id]
   key_name               = "gpac-admin-ssh"
 
   tags = {
