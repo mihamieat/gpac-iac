@@ -50,3 +50,17 @@
         DB_UI_AUTH_USERNAME: "{{ db_ui_user }}"
         DB_UI_AUTH_PASSWORD: "{{ db_ui_pass }}"
       tags: deploy
+
+    - name: Wait for MongoDB to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 27017
+        state: present
+
+    - name: Create user
+      ansible.builtin.command: >
+        docker exec -it mongodb mongosh --eval '
+        use {{ database_client }};
+        db.createCollection("user");
+        db.users.insertOne({username: "{{ db_root_user }}", password: {{ db_root_pass }});
+        '

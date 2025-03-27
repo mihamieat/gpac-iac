@@ -128,6 +128,7 @@ jobs:
             --extra-vars db_root_pass=${{ secrets.DB_ROOT_PASSWORD }}
             --extra-vars db_ui_user=${{ secrets.DB_UI_AUTH_USERNAME }}
             --extra-vars db_ui_pass=${{ secrets.DB_UI_AUTH_PASSWORD }}
+            --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
 
       - name: Run Deploy Backend Playbook
         uses: dawidd6/action-ansible-playbook@v3
