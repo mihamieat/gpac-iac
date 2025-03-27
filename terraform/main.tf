@@ -83,20 +83,6 @@ resource "aws_route_table_association" "public_subnet_association" {
   route_table_id = aws_route_table.public_route_table.id
 }
 
-
-resource "aws_route_table" "private_route_table" {
-  vpc_id = aws_vpc.production.id
-
-  tags = {
-    Name = "private-route-table"
-  }
-}
-
-resource "aws_route_table_association" "private_subnet_association" {
-  subnet_id      = aws_subnet.private_subnet.id
-  route_table_id = aws_route_table.private_route_table.id
-}
-
 #####################
 ## Security Groups ##
 #####################
@@ -152,6 +138,13 @@ resource "aws_security_group" "db_sg" {
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.db_admin_ip]
   }
 
   egress {
