@@ -39,9 +39,19 @@
         mode: "0750"
         recurse: yes
 
+    - name: Create .env file for Docker Compose
+      ansible.builtin.copy:
+        content: |
+          DB_ROOT_USERNAME={{ db_root_user }}
+          DB_ROOT_PASSWORD={{ db_root_pass }}
+          DB_UI_AUTH_USERNAME={{ db_ui_user }}
+          DB_UI_AUTH_PASSWORD={{ db_ui_pass }}
+        dest: "{{ project_dir }}/.env"
+        mode: "0644"
+
     - name: Deploy MongoDB stack
       ansible.builtin.command: >
-        docker compose -f "{{ project_dir }}/docker-compose.yml" up -d --pull always
+        docker compose -f "{{ project_dir }}/docker-compose.yml" --env-file "{{ project_dir }}/.env" up -d --pull always
       args:
         chdir: "{{ project_dir }}"
       environment:
