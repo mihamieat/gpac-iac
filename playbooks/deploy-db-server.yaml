@@ -59,7 +59,11 @@
 
     - name: Create user
       ansible.builtin.command: >
-        sudo docker exec -it mongodb mongosh --eval '
+        sudo docker exec -it mongodb mongosh \
+        --username={{ db_root_user }}
+        --password={{ db_root_pass }} \
+        --authenticationDatabase admin \
+        --eval '
         use {{ database_client }};
         db.createCollection("user");
         db.users.insertOne({username: "{{ db_root_user }}", password: {{ db_root_pass }});
