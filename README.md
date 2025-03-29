@@ -34,7 +34,7 @@ Values related to frontend configurations.
 | Variable Name | Description |
 |---|---|
 | `API_URL` | Backend URL |
-| `API_USERNAME` | Backend Login Username |
+| `API_USER` | Backend Login Username |
 | `API_PASSWORD` | Backend Login Password |
 
 ### Terraform configuration variables

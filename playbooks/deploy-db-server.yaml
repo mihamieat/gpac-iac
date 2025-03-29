@@ -67,14 +67,10 @@
         port: 27017
         state: present
 
-    - name: Create user
-      ansible.builtin.command: >
-        sudo docker exec -it mongodb mongosh \
-        --username={{ db_root_user }}
-        --password={{ db_root_pass }} \
-        --authenticationDatabase admin \
-        --eval '
-        use {{ database_client }};
-        db.createCollection("user");
-        db.users.insertOne({username: "{{ db_root_user }}", password: {{ db_root_pass }});
-        '
+    - name: Create user in MongoDB
+      ansible.builtin.shell: >
+        docker exec mongodb mongosh "mongodb://localhost:27017/{{ database_client }}" --username "{{ db_root_user }}" --password "{{ db_root_pass }}" --authenticationDatabase admin --eval "db.users.insertOne({
+          username: '{{ api_username }}',
+          password: '{{ api_password }}',
+          createdAt: new Date()
+        })"
