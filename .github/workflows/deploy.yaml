@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       database_ip: ${{ steps.save-ouputs.outputs.database_ip}}
+      database_private_ip: ${{ steps.save-ouputs.outputs.database_private_ip}}
       backend_ip: ${{ steps.save-ouputs.outputs.backend_ip}}
       frontend_ip: ${{ steps.save-ouputs.outputs.frontend_ip}}
 
@@ -58,6 +59,9 @@ jobs:
           DATABASE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_ip") | .attributes.value')
           echo "database_ip=${DATABASE_IP}" >> $GITHUB_OUTPUT
 
+          DATABASE_PRIVATE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_private_ip") | .attributes.value')
+          echo "database_private_ip=${DATABASE_PRIVATE_IP}" >> $GITHUB_OUTPUT
+
           FRONTEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_ip") | .attributes.value')
           echo "frontend_ip=${FRONTEND_IP}" >> $GITHUB_OUTPUT
 
@@ -68,6 +72,7 @@ jobs:
         id: save-ouputs
         run: |
           echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_OUTPUT
+          echo "DATABASE_PRIVATE_IP=${{ steps.tf-outputs.outputs.database_private_ip }}" >> $GITHUB_OUTPUT
           echo "BACKEND_IP=${{ steps.tf-outputs.outputs.backend_ip }}" >> $GITHUB_OUTPUT
           echo "FRONTEND_IP=${{ steps.tf-outputs.outputs.frontend_ip }}" >> $GITHUB_OUTPUT
 
@@ -133,6 +138,7 @@ jobs:
         uses: dawidd6/action-ansible-playbook@v3
         env:
           BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
+          DATABASE_PRIVATE_IP: ${{ needs.terraform.outputs.database_private_ip }}
         with:
           playbook: playbooks/deploy-backend-server.yaml
           inventory: |
@@ -140,10 +146,7 @@ jobs:
             ${{ env.BACKEND_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
-            --extra-vars database_user=${{ secrets.DATABASE_USER }}
-            --extra-vars database_password=${{ secrets.DATABASE_PASSWORD }}
-            --extra-vars database_domain=${{ secrets.DATABASE_DOMAIN }}
-            --extra-vars database_app_name=${{ secrets.DATABASE_APP_NAME }}
+            --extra-vars database_connection_string="mongodb://${{ secrets.DB_ROOT_USERNAME}}:${{ secrets.DB_ROOT_PASSWORD }}@${{ env.DATABASE_PRIVATE_IP }}"
             --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
 
       - name: Run Deploy Frontend Playbook
