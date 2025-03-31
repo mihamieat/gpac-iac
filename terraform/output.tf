@@ -12,3 +12,8 @@ output "database_ip" {
   description = "The public IP of the database EC2 instance"
   value       = aws_instance.database.public_ip
 }
+
+output "database_private_ip" {
+  description = "The private IP of the database EC2 instance"
+  value       = aws_instance.database.private_ip
+}
