@@ -1,6 +1,6 @@
-output "frontend_ip" {
-  description = "The public IP of the frontend Ec2 instance"
-  value       = aws_instance.app_fronted.public_ip
+output "frontend_public_ips" {
+  description = "Public IP addresses of the frontend instances"
+  value       = aws_instance.app_fronted[*].public_ip
 }
 
 output "backend_ip" {
