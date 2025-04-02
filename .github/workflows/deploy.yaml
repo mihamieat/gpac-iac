@@ -17,7 +17,7 @@ jobs:
       database_ip: ${{ steps.save-ouputs.outputs.database_ip}}
       database_private_ip: ${{ steps.save-ouputs.outputs.database_private_ip}}
       backend_ip: ${{ steps.save-ouputs.outputs.backend_ip}}
-      frontend_public_ips: ${{ steps.save-ouputs.outputs.frontend_public_ips}}
+      frontend_public_ips: ${{ steps.tf-outputs.outputs.frontend_public_ips}}
 
     permissions:
       contents: read
@@ -62,8 +62,8 @@ jobs:
           DATABASE_PRIVATE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_private_ip") | .attributes.value')
           echo "database_private_ip=${DATABASE_PRIVATE_IP}" >> $GITHUB_OUTPUT
 
-          FRONTEND_IPS=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_public_ips") | .attributes.value | @csv')
-          echo "frontend_ip=${FRONTEND_IPS}" >> $GITHUB_OUTPUT
+          FRONTEND_IPS=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_public_ips") | .attributes.value | join(",")')
+          echo "frontend_public_ips=${FRONTEND_IPS}" >> $GITHUB_OUTPUT
 
           BACKEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="backend_ip") | .attributes.value')
           echo "backend_ip=${BACKEND_IP}" >> $GITHUB_OUTPUT
@@ -90,11 +90,17 @@ jobs:
       - name: Configure SSH
         env:
           DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
+          BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ env.DATABASE_IP }} >> ~/.ssh/known_hosts
+          for ip in $(echo ${{ env.FRONTEND_IPS }} | tr ',' ' ' | tr -d '"'); do
+            ssh-keyscan -H $ip >> ~/.ssh/known_hosts
+          done
+          ssh-keyscan -H ${{ env.BACKEND_IP }} >> ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
