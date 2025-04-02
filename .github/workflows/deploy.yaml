@@ -151,19 +151,24 @@ jobs:
             --extra-vars database_connection_string="mongodb://${{ secrets.DB_ROOT_USERNAME}}:${{ secrets.DB_ROOT_PASSWORD }}@${{ env.DATABASE_PRIVATE_IP }}"
             --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
 
+      - name: Generate Frontend inventory file
+        env:
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
+        run: |
+          echo "[frontend]" > inventory.ini
+          for ip in ${FRONTEND_IPS//,/ }; do
+            echo "$ip ansible_user=ubuntu" >> inventory.ini
+          done
+
       - name: Run Deploy Frontend Playbook
         uses: dawidd6/action-ansible-playbook@v3
         env:
           FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
         with:
           playbook: playbooks/deploy-frontend-server.yaml
-          inventory: |
-            [frontend]
-            {% for ip in env.FRONTEND_IPS.split(',') %}
-            {{ ip }} ansible_user=ubuntu
-            {% endfor %}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
+            --inventory inventory.ini
             --extra-vars api_url=${{ secrets.API_URL }}
             --extra-vars api_username=${{ secrets.API_USER }}
             --extra-vars api_password=${{ secrets.API_PASSWORD }}
