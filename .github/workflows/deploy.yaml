@@ -151,6 +151,12 @@ jobs:
             --extra-vars database_connection_string="mongodb://${{ secrets.DB_ROOT_USERNAME}}:${{ secrets.DB_ROOT_PASSWORD }}@${{ env.DATABASE_PRIVATE_IP }}"
             --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
 
+      - name: Debug FRONTEND_IPS
+        run: |
+          echo "FRONTEND_IPS: $FRONTEND_IPS"
+        env:
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
+
       - name: Generate Frontend inventory file
         env:
           FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
