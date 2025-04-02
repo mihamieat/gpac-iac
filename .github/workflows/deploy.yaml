@@ -17,7 +17,7 @@ jobs:
       database_ip: ${{ steps.save-ouputs.outputs.database_ip}}
       database_private_ip: ${{ steps.save-ouputs.outputs.database_private_ip}}
       backend_ip: ${{ steps.save-ouputs.outputs.backend_ip}}
-      frontend_ip: ${{ steps.save-ouputs.outputs.frontend_ip}}
+      frontend_public_ips: ${{ steps.save-ouputs.outputs.frontend_public_ips}}
 
     permissions:
       contents: read
@@ -62,8 +62,8 @@ jobs:
           DATABASE_PRIVATE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_private_ip") | .attributes.value')
           echo "database_private_ip=${DATABASE_PRIVATE_IP}" >> $GITHUB_OUTPUT
 
-          FRONTEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_ip") | .attributes.value')
-          echo "frontend_ip=${FRONTEND_IP}" >> $GITHUB_OUTPUT
+          FRONTEND_IPS=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_public_ips") | .attributes.value | @csv')
+          echo "frontend_ip=${FRONTEND_IPS}" >> $GITHUB_OUTPUT
 
           BACKEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="backend_ip") | .attributes.value')
           echo "backend_ip=${BACKEND_IP}" >> $GITHUB_OUTPUT
@@ -74,7 +74,7 @@ jobs:
           echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_OUTPUT
           echo "DATABASE_PRIVATE_IP=${{ steps.tf-outputs.outputs.database_private_ip }}" >> $GITHUB_OUTPUT
           echo "BACKEND_IP=${{ steps.tf-outputs.outputs.backend_ip }}" >> $GITHUB_OUTPUT
-          echo "FRONTEND_IP=${{ steps.tf-outputs.outputs.frontend_ip }}" >> $GITHUB_OUTPUT
+          echo "FRONTEND_IPS=${{ steps.tf-outputs.outputs.frontend_public_ips }}" >> $GITHUB_OUTPUT
 
   ansible:
     name: "Ansible Provisioning"
@@ -102,7 +102,7 @@ jobs:
         uses: dawidd6/action-ansible-playbook@v3
         env:
           DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
-          FRONTEND_IP: ${{ needs.terraform.outputs.frontend_ip }}
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
           BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
         with:
           playbook: playbooks/configure-servers.yaml
@@ -110,7 +110,9 @@ jobs:
             [mongodb]
             ${{ env.DATABASE_IP }} ansible_user=ubuntu
             [frontend]
-            ${{ env.FRONTEND_IP }} ansible_user=ubuntu
+            {% for ip in env.FRONTEND_IPS.split(',') %}
+            {{ ip }} ansible_user=ubuntu
+            {% endfor %}
             [backend]
             ${{ env.BACKEND_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -152,12 +154,14 @@ jobs:
       - name: Run Deploy Frontend Playbook
         uses: dawidd6/action-ansible-playbook@v3
         env:
-          FRONTEND_IP: ${{ needs.terraform.outputs.frontend_ip }}
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
         with:
           playbook: playbooks/deploy-frontend-server.yaml
           inventory: |
             [frontend]
-            ${{ env.FRONTEND_IP }} ansible_user=ubuntu
+            {% for ip in env.FRONTEND_IPS.split(',') %}
+            {{ ip }} ansible_user=ubuntu
+            {% endfor %}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
             --extra-vars api_url=${{ secrets.API_URL }}
