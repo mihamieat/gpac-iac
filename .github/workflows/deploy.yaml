@@ -121,10 +121,6 @@ jobs:
 
       - name: Configure EC2 targets
         uses: dawidd6/action-ansible-playbook@v3
-        env:
-          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
-          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
-          BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
         with:
           playbook: playbooks/configure-servers.yaml
           key: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -133,8 +129,6 @@ jobs:
 
       - name: Run Install Mongo DB Ansible Playbook
         uses: dawidd6/action-ansible-playbook@v3
-        env:
-          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         with:
           playbook: playbooks/deploy-db-server.yaml
           key: ${{ secrets.SSH_PRIVATE_KEY }}
