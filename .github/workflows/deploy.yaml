@@ -15,8 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       database_ip: ${{ steps.save-ouputs.outputs.database_ip}}
+      database_private_ip: ${{ steps.save-ouputs.outputs.database_private_ip}}
       backend_ip: ${{ steps.save-ouputs.outputs.backend_ip}}
-      frontend_ip: ${{ steps.save-ouputs.outputs.frontend_ip}}
+      frontend_public_ips: ${{ steps.tf-outputs.outputs.frontend_public_ips}}
 
     permissions:
       contents: read
@@ -58,8 +59,11 @@ jobs:
           DATABASE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_ip") | .attributes.value')
           echo "database_ip=${DATABASE_IP}" >> $GITHUB_OUTPUT
 
-          FRONTEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_ip") | .attributes.value')
-          echo "frontend_ip=${FRONTEND_IP}" >> $GITHUB_OUTPUT
+          DATABASE_PRIVATE_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="database_private_ip") | .attributes.value')
+          echo "database_private_ip=${DATABASE_PRIVATE_IP}" >> $GITHUB_OUTPUT
+
+          FRONTEND_IPS=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="frontend_public_ips") | .attributes.value | join(",")')
+          echo "frontend_public_ips=${FRONTEND_IPS}" >> $GITHUB_OUTPUT
 
           BACKEND_IP=$(echo "$RESPONSE" | jq -r '.data[] | select(.attributes.name=="backend_ip") | .attributes.value')
           echo "backend_ip=${BACKEND_IP}" >> $GITHUB_OUTPUT
@@ -68,8 +72,9 @@ jobs:
         id: save-ouputs
         run: |
           echo "DATABASE_IP=${{ steps.tf-outputs.outputs.database_ip }}" >> $GITHUB_OUTPUT
+          echo "DATABASE_PRIVATE_IP=${{ steps.tf-outputs.outputs.database_private_ip }}" >> $GITHUB_OUTPUT
           echo "BACKEND_IP=${{ steps.tf-outputs.outputs.backend_ip }}" >> $GITHUB_OUTPUT
-          echo "FRONTEND_IP=${{ steps.tf-outputs.outputs.frontend_ip }}" >> $GITHUB_OUTPUT
+          echo "FRONTEND_IPS=${{ steps.tf-outputs.outputs.frontend_public_ips }}" >> $GITHUB_OUTPUT
 
   ansible:
     name: "Ansible Provisioning"
@@ -85,75 +90,77 @@ jobs:
       - name: Configure SSH
         env:
           DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
+          BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ env.DATABASE_IP }} >> ~/.ssh/known_hosts
+          for ip in $(echo ${{ env.FRONTEND_IPS }} | tr ',' ' ' | tr -d '"'); do
+            ssh-keyscan -H $ip >> ~/.ssh/known_hosts
+          done
+          ssh-keyscan -H ${{ env.BACKEND_IP }} >> ~/.ssh/known_hosts
           eval "$(ssh-agent -s)"
           ssh-add ~/.ssh/id_rsa
 
-      - name: Configure EC2 targets
-        uses: dawidd6/action-ansible-playbook@v3
+      - name: Generate inventory file
         env:
           DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
-          FRONTEND_IP: ${{ needs.terraform.outputs.frontend_ip }}
+          FRONTEND_IPS: ${{ needs.terraform.outputs.frontend_public_ips }}
           BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
+        run: |
+          echo "[frontend]" > inventory.ini
+          for ip in ${FRONTEND_IPS//,/ }; do
+            echo "$ip ansible_user=ubuntu" >> inventory.ini
+          done
+          echo "[backend]" >> inventory.ini
+          echo "${{ env.BACKEND_IP }} ansible_user=ubuntu" >> inventory.ini
+          echo "[mongodb]" >> inventory.ini
+          echo "${{ env.DATABASE_IP }} ansible_user=ubuntu" >> inventory.ini
+
+      - name: Configure EC2 targets
+        uses: dawidd6/action-ansible-playbook@v3
         with:
           playbook: playbooks/configure-servers.yaml
-          inventory: |
-            [mongodb]
-            ${{ env.DATABASE_IP }} ansible_user=ubuntu
-            [frontend]
-            ${{ env.FRONTEND_IP }} ansible_user=ubuntu
-            [backend]
-            ${{ env.BACKEND_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          options: |
+            --inventory inventory.ini
 
       - name: Run Install Mongo DB Ansible Playbook
         uses: dawidd6/action-ansible-playbook@v3
-        env:
-          DATABASE_IP: ${{ needs.terraform.outputs.database_ip }}
         with:
           playbook: playbooks/deploy-db-server.yaml
-          inventory: |
-            [mongodb]
-            ${{ env.DATABASE_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
+            --inventory inventory.ini
             --extra-vars db_root_user=${{ secrets.DB_ROOT_USERNAME }}
             --extra-vars db_root_pass=${{ secrets.DB_ROOT_PASSWORD }}
             --extra-vars db_ui_user=${{ secrets.DB_UI_AUTH_USERNAME }}
             --extra-vars db_ui_pass=${{ secrets.DB_UI_AUTH_PASSWORD }}
+            --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
+            --extra-vars api_username=${{ secrets.API_USER }}
+            --extra-vars api_password=${{ secrets.API_PASSWORD }}
 
       - name: Run Deploy Backend Playbook
         uses: dawidd6/action-ansible-playbook@v3
         env:
-          BACKEND_IP: ${{ needs.terraform.outputs.backend_ip }}
+          DATABASE_PRIVATE_IP: ${{ needs.terraform.outputs.database_private_ip }}
         with:
           playbook: playbooks/deploy-backend-server.yaml
-          inventory: |
-            [backend]
-            ${{ env.BACKEND_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
-            --extra-vars database_user=${{ secrets.DATABASE_USER }}
-            --extra-vars database_password=${{ secrets.DATABASE_PASSWORD }}
-            --extra-vars database_domain=${{ secrets.DATABASE_DOMAIN }}
-            --extra-vars database_app_name=${{ secrets.DATABASE_APP_NAME }}
+            --inventory inventory.ini
+            --extra-vars database_connection_string="mongodb://${{ secrets.DB_ROOT_USERNAME}}:${{ secrets.DB_ROOT_PASSWORD }}@${{ env.DATABASE_PRIVATE_IP }}"
             --extra-vars database_client=${{ secrets.DATABASE_CLIENT }}
 
       - name: Run Deploy Frontend Playbook
         uses: dawidd6/action-ansible-playbook@v3
-        env:
-          FRONTEND_IP: ${{ needs.terraform.outputs.frontend_ip }}
         with:
           playbook: playbooks/deploy-frontend-server.yaml
-          inventory: |
-            [frontend]
-            ${{ env.FRONTEND_IP }} ansible_user=ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: |
+            --inventory inventory.ini
             --extra-vars api_url=${{ secrets.API_URL }}
             --extra-vars api_username=${{ secrets.API_USER }}
             --extra-vars api_password=${{ secrets.API_PASSWORD }}

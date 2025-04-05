@@ -34,8 +34,14 @@ Values related to frontend configurations.
 | Variable Name | Description |
 |---|---|
 | `API_URL` | Backend URL |
-| `API_USERNAME` | Backend Login Username |
+| `API_USER` | Backend Login Username |
 | `API_PASSWORD` | Backend Login Password |
+
+### Terraform configuration variables
+
+| Variable Name      | Description                      |
+| ------------------ | -------------------------------- |
+| TF_VAR_db_admin_ip | IP adress of Mongo Express Admin |
 
 ## Contribute
 

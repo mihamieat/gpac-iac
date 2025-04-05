@@ -2,7 +2,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 4.16"
+      version = "~> 5.89.0"
     }
   }
 
@@ -11,6 +11,13 @@ terraform {
 
 provider "aws" {
   region = "eu-west-3"
+}
+#############
+## AZ data ##
+#############
+
+data "aws_availability_zones" "available" {
+  state = "available"
 }
 
 ####################
@@ -49,6 +56,18 @@ resource "aws_subnet" "private_subnet" {
   }
 }
 
+resource "aws_subnet" "frontend_subnet" {
+  count                   = 2
+  vpc_id                  = aws_vpc.production.id
+  cidr_block              = element(["10.0.10.0/24", "10.0.11.0/24"], count.index)
+  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "subnet-az${count.index + 1}"
+  }
+}
+
 ######################
 ## Internet Gateway ##
 ######################
@@ -83,18 +102,24 @@ resource "aws_route_table_association" "public_subnet_association" {
   route_table_id = aws_route_table.public_route_table.id
 }
 
-
-resource "aws_route_table" "private_route_table" {
-  vpc_id = aws_vpc.production.id
-
-  tags = {
-    Name = "private-route-table"
-  }
+resource "aws_route_table_association" "frontend_subnet_association" {
+  count          = 2
+  subnet_id      = aws_subnet.frontend_subnet[count.index].id
+  route_table_id = aws_route_table.public_route_table.id
 }
 
-resource "aws_route_table_association" "private_subnet_association" {
-  subnet_id      = aws_subnet.private_subnet.id
-  route_table_id = aws_route_table.private_route_table.id
+#########
+## ALB ##
+#########
+
+module "alb" {
+  source              = "./module/alb"
+  vpc_id              = aws_vpc.production.id
+  security_groups     = [aws_security_group.public_sg.id]
+  subnet_ids          = aws_subnet.frontend_subnet[*].id
+  health_check_path   = "/"
+  target_instance_ids = aws_instance.app_fronted[*].id
+  certificate_arn     = var.certificate_arn
 }
 
 #####################
@@ -154,6 +179,13 @@ resource "aws_security_group" "db_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.db_admin_ip]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -173,13 +205,15 @@ resource "aws_security_group" "db_sg" {
 
 resource "aws_instance" "app_fronted" {
   ami                    = "ami-0160e8d70ebc43ee1" # Ubuntu 24.04 x86
+  count                  = 2
   instance_type          = "t2.micro"
-  subnet_id              = aws_subnet.public_subnet.id
+  subnet_id              = aws_subnet.frontend_subnet[count.index].id
+  availability_zone      = data.aws_availability_zones.available.names[count.index]
   vpc_security_group_ids = [aws_security_group.public_sg.id]
   key_name               = "gpac-admin-ssh"
 
   tags = {
-    Name = "frontend"
+    Name = "frontend-server-az${count.index + 1}"
   }
 }
 
@@ -199,7 +233,7 @@ resource "aws_instance" "database" {
   ami                    = "ami-0160e8d70ebc43ee1" # Ubuntu 24.04 x86
   instance_type          = "t2.micro"
   subnet_id              = aws_subnet.public_subnet.id
-  vpc_security_group_ids = [aws_security_group.public_sg.id]
+  vpc_security_group_ids = [aws_security_group.db_sg.id]
   key_name               = "gpac-admin-ssh"
 
   tags = {

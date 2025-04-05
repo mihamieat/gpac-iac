@@ -39,9 +39,19 @@
         mode: "0750"
         recurse: yes
 
+    - name: Create .env file for Docker Compose
+      ansible.builtin.copy:
+        content: |
+          DB_ROOT_USERNAME={{ db_root_user }}
+          DB_ROOT_PASSWORD={{ db_root_pass }}
+          DB_UI_AUTH_USERNAME={{ db_ui_user }}
+          DB_UI_AUTH_PASSWORD={{ db_ui_pass }}
+        dest: "{{ project_dir }}/.env"
+        mode: "0644"
+
     - name: Deploy MongoDB stack
       ansible.builtin.command: >
-        docker compose -f "{{ project_dir }}/docker-compose.yml" up -d --pull always
+        docker compose -f "{{ project_dir }}/docker-compose.yml" --env-file "{{ project_dir }}/.env" up -d --pull always
       args:
         chdir: "{{ project_dir }}"
       environment:
@@ -50,3 +60,21 @@
         DB_UI_AUTH_USERNAME: "{{ db_ui_user }}"
         DB_UI_AUTH_PASSWORD: "{{ db_ui_pass }}"
       tags: deploy
+
+    - name: Wait for MongoDB to be ready
+      ansible.builtin.wait_for:
+        host: localhost
+        port: 27017
+        state: present
+
+    - name: Create user in MongoDB
+      ansible.builtin.shell: >
+        docker exec mongodb mongosh "mongodb://localhost:27017/{{ database_client }}" --username "{{ db_root_user }}" --password "{{ db_root_pass }}" --authenticationDatabase admin --eval "db.users.insertOne({
+          username: '{{ api_username }}',
+          password: '{{ api_password }}',
+          createdAt: new Date()
+        })"
+      delay: 5
+      retries: 10
+      register: mongodb_create_user
+      until: mongodb_create_user.rc == 0
